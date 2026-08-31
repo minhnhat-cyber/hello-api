@@ -1,7 +1,16 @@
 import { MongoClient } from "mongodb";
 
-const options = {};
+const options = {
+  family: 4,
+  serverSelectionTimeoutMS: 10000,
+};
+
 let globalClientPromise;
+
+function connect(uri) {
+  const client = new MongoClient(uri, options);
+  return client.connect();
+}
 
 export function getClientPromise() {
   const uri = process.env.MONGODB_URI;
@@ -12,15 +21,12 @@ export function getClientPromise() {
     );
   }
 
-  if (process.env.NODE_ENV === "development") {
-    if (!globalClientPromise) {
-      const client = new MongoClient(uri, options);
-      globalClientPromise = client.connect();
-    }
-
-    return globalClientPromise;
-  } else {
-    const client = new MongoClient(uri, options);
-    return client.connect();
+  if (!globalClientPromise) {
+    globalClientPromise = connect(uri).catch((error) => {
+      globalClientPromise = undefined;
+      throw error;
+    });
   }
+
+  return globalClientPromise;
 }
