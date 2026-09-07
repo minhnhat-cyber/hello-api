@@ -1,3 +1,4 @@
+import { verifyJWT } from '@/lib/auth';
 import corsHeaders from "@/lib/cors";
 import { getClientPromise } from "@/lib/mongodb";
 import {
@@ -13,7 +14,8 @@ export async function OPTIONS() {
   });
 }
 
-export async function GET() {
+export async function GET(request) {
+  if (!verifyJWT(request)) return errorResponse('Unauthorized Request', 401);
   try {
     const client = await getClientPromise();
     const db = client.db(process.env.DB_NAME || "hello_api");
@@ -30,11 +32,13 @@ export async function GET() {
 }
 
 export async function POST(request) {
+  if (!verifyJWT(request)) return errorResponse('Unauthorized Request', 401);
   try {
-    const data = await request.json();
-    const { name, category, price, amount } = data;
+    let data;
+    try { data = await request.json(); } catch { return errorResponse("Invalid JSON body", 400); }
+    const { name, category, price, amount } = data ?? {};
 
-    if (!name || !category || price === undefined || amount === undefined) {
+    if (typeof name !== "string" || !name.trim() || typeof category !== "string" || !category.trim() || typeof price !== "number" || !Number.isFinite(price) || price < 0 || !Number.isInteger(amount) || amount < 0) {
       return errorResponse(
         "name, category, price and amount are required",
         400,

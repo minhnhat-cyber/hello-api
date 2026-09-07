@@ -1,3 +1,4 @@
+import { verifyJWT } from '@/lib/auth';
 import corsHeaders from "@/lib/cors";
 import { getClientPromise } from "@/lib/mongodb";
 import {
@@ -19,6 +20,7 @@ export async function OPTIONS() {
 }
 
 export async function GET(request, { params }) {
+  if (!verifyJWT(request)) return errorResponse('Unauthorized Request', 401);
   const { item_id: itemId } = await params;
   const objectId = toObjectId(itemId);
 
@@ -41,6 +43,7 @@ export async function GET(request, { params }) {
 }
 
 export async function DELETE(request, { params }) {
+  if (!verifyJWT(request)) return errorResponse('Unauthorized Request', 401);
   const { item_id: itemId } = await params;
   const objectId = toObjectId(itemId);
 
@@ -74,16 +77,18 @@ export async function DELETE(request, { params }) {
 }
 
 export async function PUT(request, { params }) {
+  if (!verifyJWT(request)) return errorResponse('Unauthorized Request', 401);
   const { item_id: itemId } = await params;
   const objectId = toObjectId(itemId);
 
   if (!objectId) return errorResponse("Invalid item id", 400);
 
   try {
-    const data = await request.json();
-    const { name, category, price, amount } = data;
+    let data;
+    try { data = await request.json(); } catch { return errorResponse("Invalid JSON body", 400); }
+    const { name, category, price, amount } = data ?? {};
 
-    if (!name || !category || price === undefined || amount === undefined) {
+    if (typeof name !== "string" || !name.trim() || typeof category !== "string" || !category.trim() || typeof price !== "number" || !Number.isFinite(price) || price < 0 || !Number.isInteger(amount) || amount < 0) {
       return errorResponse(
         "name, category, price and amount are required",
         400,
